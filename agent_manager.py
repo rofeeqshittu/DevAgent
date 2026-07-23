@@ -49,7 +49,7 @@ async def chat_with_agent(text):
     )
     
     async with Agent(config) as agent:
+        response = await agent.chat(text)
         if not cid:
             save_conversation_id(agent.conversation_id)
-        response = await agent.chat(text)
         return await response.text()
