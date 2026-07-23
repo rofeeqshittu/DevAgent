@@ -21,7 +21,9 @@ def get_telegram_context():
 def get_conversation_id():
     if os.path.exists(CONV_ID_FILE):
         with open(CONV_ID_FILE, "r") as f:
-            return f.read().strip()
+            cid = f.read().strip()
+            if cid:
+                return cid
     return None
 
 def save_conversation_id(cid):
@@ -50,6 +52,6 @@ async def chat_with_agent(text):
     
     async with Agent(config) as agent:
         response = await agent.chat(text)
-        if not cid:
-            save_conversation_id(agent.conversation_id)
+        if not cid and agent.conversation_id:
+            save_conversation_id(str(agent.conversation_id))
         return await response.text()
