@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+.env
+agent_state/
+conversation_id.txt
+*.pyc
