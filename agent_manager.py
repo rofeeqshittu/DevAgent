@@ -51,7 +51,17 @@ async def chat_with_agent(text):
     )
     
     async with Agent(config) as agent:
-        response = await agent.chat(text)
-        if not cid and agent.conversation_id:
-            save_conversation_id(str(agent.conversation_id))
-        return await response.text()
+        # Add robust retry logic for 503 Server Overload errors from Google
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await agent.chat(text)
+                if not cid and agent.conversation_id:
+                    save_conversation_id(str(agent.conversation_id))
+                return await response.text()
+            except Exception as e:
+                error_msg = str(e)
+                if "503" in error_msg and attempt < max_retries - 1:
+                    await asyncio.sleep(2 * (attempt + 1)) # Exponential backoff: 2s, 4s
+                    continue
+                raise e
