@@ -88,9 +88,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             future.set_result(action == "approve")
             
         if action == "approve":
-            await query.edit_message_text(f"{query.message.text}\n\n✅ *Action Approved by User*", parse_mode="Markdown")
+            await query.edit_message_text("✅ *Action Approved by User*", parse_mode="Markdown")
         else:
-            await query.edit_message_text(f"{query.message.text}\n\n❌ *Action Denied by User*", parse_mode="Markdown")
+            await query.edit_message_text("❌ *Action Denied by User*", parse_mode="Markdown")
 
 def main():
     if not TELEGRAM_TOKEN:
