@@ -208,13 +208,15 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if results:
         matched_text, candidate_time = results[0]
-        # Only accept if it's genuinely in the future — otherwise fall through to AI
+        # Only accept if it's genuinely in the future AND leaves a non-empty message
         if candidate_time > datetime.now(timezone.utc):
-            parsed_time = candidate_time
             STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
             msg_raw = full_text.replace(matched_text, " ").strip()
             message_words = [w for w in msg_raw.split() if w.lower() not in STRIP_WORDS]
-            message = " ".join(message_words).strip()
+            candidate_msg = " ".join(message_words).strip()
+            if candidate_msg:  # only accept if a message remains — else fall through to AI
+                parsed_time = candidate_time
+                message = candidate_msg
 
     if parsed_time is None:
         # Slow path: ask Qwen — handles ambiguous/past parses and complex natural language
