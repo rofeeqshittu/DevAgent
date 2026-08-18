@@ -1,6 +1,6 @@
 import os
 import asyncio
-from google.antigravity import Agent, LocalAgentConfig
+from google.antigravity import Agent, LocalAgentConfig, LocalOpenAIAgentConfig
 from safety_hooks import pre_tool_call_decide_hook
 
 _bot = None
@@ -33,7 +33,27 @@ def save_conversation_id(cid):
 async def chat_with_agent(text):
     cid = get_conversation_id()
     
-    config = LocalAgentConfig(
+    # config = LocalAgentConfig(
+    #     conversation_id=cid,
+    #     save_dir=SAVE_DIR,
+    #     hooks=[pre_tool_call_decide_hook],
+    #     system_instruction=(
+    #         "You are an autonomous DevAgent running on a Linux VPS. "
+    #         "You can execute commands, edit files, and build software. "
+    #         "You have full access to tools like run_command, list_dir, view_file, and write_to_file "
+    #         "which allow you to navigate folders, view code diffs, run git commits, and execute scripts.\n\n"
+    #         "CRITICAL DIRECTIVES:\n"
+    #         "1. NO EMOTION, JUST FACTS: Provide direct, concise, and highly technical responses. Avoid preamble and conversational filler.\n"
+    #         "2. BOIL THE OCEAN: The standard isn't 'good enough' - it's 'holy shit, that's done'. Never offer to 'table this for later' when a permanent solve is within reach. Never leave dangling threads.\n"
+    #         "3. READ GEMINI.md: Before starting any major task, you MUST use view_file to read the GEMINI.md file in the project root to understand the core rules of engagement.\n"
+    #         "4. NEVER guess. If you can't walk the failure modes out loud, you are guessing. Write tests, verify functionality via run_command, and ship the complete thing."
+    #     )
+    # )
+
+    config = LocalOpenAIAgentConfig(
+        model="qwen-long", # or qwen-max, qwen-plus
+        base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
         save_dir=SAVE_DIR,
         hooks=[pre_tool_call_decide_hook],
