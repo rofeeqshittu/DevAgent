@@ -4,6 +4,7 @@ import threading
 from google.antigravity import Agent, LocalAgentConfig, LocalOpenAIAgentConfig
 from safety_hooks import pre_tool_call_decide_hook
 from qwen_proxy import start_proxy
+from chat_history import build_context_message, add_turn
 
 _bot = None
 _chat_id = None
@@ -45,7 +46,10 @@ def save_conversation_id(cid):
 
 async def chat_with_agent(text):
     cid = get_conversation_id()
-    
+
+    # Build message with full conversation context prepended
+    message_with_context = build_context_message(text)
+
     # config = LocalAgentConfig(
     #     conversation_id=cid,
     #     save_dir=SAVE_DIR,
@@ -167,10 +171,13 @@ async def chat_with_agent(text):
     for attempt in range(max_retries):
         try:
             async with Agent(config) as agent:
-                response = await agent.chat(text)
+                response = await agent.chat(message_with_context)
                 if not cid and agent.conversation_id:
                     save_conversation_id(str(agent.conversation_id))
-                return await response.text()
+                reply = await response.text()
+                # Save this exchange to persistent history
+                add_turn(text, reply)
+                return reply
         except Exception as e:
             error_msg = str(e)
             if ("503" in error_msg or "1000 (OK)" in error_msg or "ConnectionClosed" in error_msg) and attempt < max_retries - 1:

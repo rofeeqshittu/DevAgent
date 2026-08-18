@@ -9,6 +9,7 @@ import shutil
 
 import agent_manager
 from safety_hooks import pending_approvals
+from chat_history import clear_history
 
 load_dotenv()
 
@@ -27,11 +28,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Wake me up\n"
         "/help - Show this message\n"
         "/status - Check VPS server health (CPU, RAM, Disk)\n"
-        "/restart - Pull latest code from GitHub and restart the bot\n\n"
+        "/restart - Pull latest code from GitHub and restart the bot\n"
+        "/clear - Wipe conversation memory and start fresh\n\n"
         "*Examples of what you can ask me:*\n"
         "- \"Clone my repo to /opt/my-app\"\n"
         "- \"Find the error in my python script\"\n"
-        "- \"Run git pull in the StreamVault folder\"\n\n"
+        "- \"Research the best Python web frameworks\"\n\n"
         "If I need to run a critical command or edit a file, I will send you a prompt with Approve/Deny buttons."
     )
     await update.message.reply_text(help_text, parse_mode="Markdown")
@@ -68,6 +70,18 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import os, signal
     os.kill(os.getpid(), signal.SIGTERM)
 
+
+async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clear_history()
+    # Also reset the saved conversation_id so Antigravity starts fresh too
+    import agent_manager as am
+    import os
+    if os.path.exists(am.CONV_ID_FILE):
+        os.remove(am.CONV_ID_FILE)
+    await update.message.reply_text(
+        "🧹 *Memory cleared.* I have no recollection of any previous conversation. Start fresh!",
+        parse_mode="Markdown"
+    )
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -137,6 +151,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("restart", restart_command))
+    app.add_handler(CommandHandler("clear", clear_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message, block=False))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
