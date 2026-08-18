@@ -51,7 +51,7 @@ async def chat_with_agent(text):
     # )
 
     config = LocalOpenAIAgentConfig(
-        model="qwen-long", # or qwen-max, qwen-plus
+        model="qwen-plus", # or qwen-max
         base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
