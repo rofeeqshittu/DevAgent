@@ -15,7 +15,7 @@ SAVE_DIR = "agent_state"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-def get_agent(cid: str) -> Agent:
+def ensure_proxy_running():
     global _proxy_started, _proxy_port
     with _proxy_lock:
         if not _proxy_started:
@@ -62,6 +62,8 @@ async def chat_with_agent(text):
     #         "4. NEVER guess. If you can't walk the failure modes out loud, you are guessing. Write tests, verify functionality via run_command, and ship the complete thing."
     #     )
     # )
+    # Make sure the local auth proxy is running and get its dynamic port
+    ensure_proxy_running()
 
     config = LocalOpenAIAgentConfig(
         model="qwen-plus", # or qwen-max
