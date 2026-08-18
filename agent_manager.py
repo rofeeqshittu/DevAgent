@@ -9,10 +9,19 @@ _bot = None
 _chat_id = None
 _proxy_started = False
 _proxy_lock = threading.Lock()
+_proxy_port = None
 CONV_ID_FILE = "conversation_id.txt"
 SAVE_DIR = "agent_state"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
+
+def get_agent(cid: str) -> Agent:
+    global _proxy_started, _proxy_port
+    with _proxy_lock:
+        if not _proxy_started:
+            httpd, port = start_proxy(port=0)
+            _proxy_port = port
+            _proxy_started = True
 
 def set_telegram_context(bot, chat_id):
     global _bot, _chat_id
@@ -56,7 +65,7 @@ async def chat_with_agent(text):
 
     config = LocalOpenAIAgentConfig(
         model="qwen-plus", # or qwen-max
-        base_url="http://127.0.0.1:8090",
+        base_url=f"http://127.0.0.1:{_proxy_port}",
         api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
         save_dir=SAVE_DIR,

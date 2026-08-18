@@ -36,8 +36,9 @@ class ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-def start_proxy(port=8090):
+def start_proxy(port=0):
     httpd = HTTPServer(('127.0.0.1', port), ProxyHTTPRequestHandler)
+    actual_port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
-    return httpd
+    return httpd, actual_port
