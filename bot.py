@@ -197,6 +197,7 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "RETURN_AS_TIMEZONE_AWARE": True,
         "TIMEZONE": "Africa/Lagos",
         "TO_TIMEZONE": "UTC",
+        "PREFER_DAY_OF_MONTH": "first",
     }
 
     # search_dates finds the actual time expression within the text
@@ -206,29 +207,26 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = None
 
     if results:
-        # Fast path: dateparser found a time expression
-        matched_text, parsed_time = results[0]
+        matched_text, candidate_time = results[0]
+        # Only accept if it's genuinely in the future — otherwise fall through to AI
+        if candidate_time > datetime.now(timezone.utc):
+            parsed_time = candidate_time
+            STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
+            msg_raw = full_text.replace(matched_text, " ").strip()
+            message_words = [w for w in msg_raw.split() if w.lower() not in STRIP_WORDS]
+            message = " ".join(message_words).strip()
 
-        if parsed_time <= datetime.now(timezone.utc):
-            await update.message.reply_text("❌ That time is in the past. Use a future time.", parse_mode="Markdown")
-            return
-
-        STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
-        message = full_text.replace(matched_text, " ").strip()
-        message_words = [w for w in message.split() if w.lower() not in STRIP_WORDS]
-        message = " ".join(message_words).strip()
-
-    else:
-        # Slow path: ask Qwen to interpret natural language
-        await update.message.reply_text("🤔 Let me think about that time...", parse_mode="Markdown")
+    if parsed_time is None:
+        # Slow path: ask Qwen — handles ambiguous/past parses and complex natural language
         now_wat = (datetime.now(timezone.utc) + USER_TZ_OFFSET).strftime("%Y-%m-%d %H:%M")
         result = await parse_reminder_with_ai(full_text, now_wat)
 
         if result is None:
             await update.message.reply_text(
-                "❌ Couldn't understand the time even with AI help. Try:\n"
+                "❌ Couldn't understand the time. Try:\n"
                 "`/remind tomorrow at 5pm call John`\n"
-                "`/remind in 30 minutes check logs`",
+                "`/remind in 30 minutes check logs`\n"
+                "`/remind next Friday 9am standup`",
                 parse_mode="Markdown"
             )
             return
