@@ -1,10 +1,14 @@
 import os
 import asyncio
+import threading
 from google.antigravity import Agent, LocalAgentConfig, LocalOpenAIAgentConfig
 from safety_hooks import pre_tool_call_decide_hook
+from qwen_proxy import start_proxy
 
 _bot = None
 _chat_id = None
+_proxy_started = False
+_proxy_lock = threading.Lock()
 CONV_ID_FILE = "conversation_id.txt"
 SAVE_DIR = "agent_state"
 
@@ -52,7 +56,7 @@ async def chat_with_agent(text):
 
     config = LocalOpenAIAgentConfig(
         model="qwen-plus", # or qwen-max
-        base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        base_url="http://127.0.0.1:8090",
         api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
         save_dir=SAVE_DIR,
