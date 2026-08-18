@@ -104,6 +104,68 @@ async def fire_reminder(context: ContextTypes.DEFAULT_TYPE):
         # Remove from persistent store
         remove_reminder(data["id"])
 
+# ─── AI FALLBACK FOR TIME PARSING ─────────────────────────────────────────────
+async def parse_reminder_with_ai(user_input: str, now_wat: str) -> tuple | None:
+    """
+    When dateparser can't extract a time, ask Qwen to do it.
+    Returns (datetime_utc, message_str) or None on failure.
+    """
+    import json
+    import re
+    import httpx
+    from qwen_proxy import ensure_proxy_running, _proxy_port
+
+    try:
+        ensure_proxy_running()
+
+        prompt = (
+            f"Current time: {now_wat} (West Africa Time, UTC+1).\n"
+            f"The user wants to set a reminder: \"{user_input}\"\n\n"
+            f"Extract the fire time and the reminder message.\n"
+            f"Return ONLY valid JSON with no extra text:\n"
+            f'{{\"fire_at\": \"<ISO 8601 datetime in UTC>\", \"message\": \"<reminder text>\"}}\n\n'
+            f"If no clear future time is found, return: {{\"error\": \"reason\"}}"
+        )
+
+        payload = {
+            "model": "qwen-max",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "max_tokens": 120
+        }
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"http://127.0.0.1:{_proxy_port}/v1/chat/completions",
+                json=payload
+            )
+            resp.raise_for_status()
+
+        content = resp.json()["choices"][0]["message"]["content"].strip()
+
+        # Pull out the JSON block even if Qwen adds surrounding text
+        match = re.search(r'\{.*?\}', content, re.DOTALL)
+        if not match:
+            return None
+
+        data = json.loads(match.group())
+        if "error" in data:
+            return None
+
+        fire_at = datetime.fromisoformat(data["fire_at"].replace("Z", "+00:00"))
+        if fire_at.tzinfo is None:
+            fire_at = fire_at.replace(tzinfo=timezone.utc)
+
+        msg = data.get("message", "").strip()
+        if not msg or fire_at <= datetime.now(timezone.utc):
+            return None
+
+        return fire_at, msg
+
+    except Exception as e:
+        logging.error(f"AI reminder parse failed: {e}")
+        return None
+
 # ─── REMIND COMMAND ───────────────────────────────────────────────────────────
 async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -140,29 +202,38 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # search_dates finds the actual time expression within the text
     results = search_dates(full_text, settings=parse_settings, languages=["en"])
 
-    if not results:
-        await update.message.reply_text(
-            "❌ Couldn't find a time in that. Try:\n"
-            "`/remind tomorrow at 5pm call John`\n"
-            "`/remind in 30 minutes check logs`",
-            parse_mode="Markdown"
-        )
-        return
+    parsed_time = None
+    message = None
 
-    # Take the first (earliest) found time expression
-    matched_text, parsed_time = results[0]
+    if results:
+        # Fast path: dateparser found a time expression
+        matched_text, parsed_time = results[0]
 
-    # Reject if it's in the past
-    if parsed_time <= datetime.now(timezone.utc):
-        await update.message.reply_text("❌ That time is in the past. Use a future time.", parse_mode="Markdown")
-        return
+        if parsed_time <= datetime.now(timezone.utc):
+            await update.message.reply_text("❌ That time is in the past. Use a future time.", parse_mode="Markdown")
+            return
 
-    # Extract message by removing the matched time text
-    # Also strip common filler words: "me", "about", "sth", etc.
-    STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
-    message = full_text.replace(matched_text, " ").strip()
-    message_words = [w for w in message.split() if w.lower() not in STRIP_WORDS]
-    message = " ".join(message_words).strip()
+        STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
+        message = full_text.replace(matched_text, " ").strip()
+        message_words = [w for w in message.split() if w.lower() not in STRIP_WORDS]
+        message = " ".join(message_words).strip()
+
+    else:
+        # Slow path: ask Qwen to interpret natural language
+        await update.message.reply_text("🤔 Let me think about that time...", parse_mode="Markdown")
+        now_wat = (datetime.now(timezone.utc) + USER_TZ_OFFSET).strftime("%Y-%m-%d %H:%M")
+        result = await parse_reminder_with_ai(full_text, now_wat)
+
+        if result is None:
+            await update.message.reply_text(
+                "❌ Couldn't understand the time even with AI help. Try:\n"
+                "`/remind tomorrow at 5pm call John`\n"
+                "`/remind in 30 minutes check logs`",
+                parse_mode="Markdown"
+            )
+            return
+
+        parsed_time, message = result
 
     if not message:
         await update.message.reply_text(
