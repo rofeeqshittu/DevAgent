@@ -119,73 +119,78 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         import dateparser
+        from dateparser.search import search_dates
     except ImportError:
-        await update.message.reply_text("❌ dateparser not installed. Run: `pip install dateparser`", parse_mode="Markdown")
+        await update.message.reply_text("❌ dateparser not installed.", parse_mode="Markdown")
         return
 
-    full_text = " ".join(context.args)
-
-    # Normalize: add space between digits and letters ("3minutes" → "3 minutes", "2hrs" → "2 hrs")
     import re
+    full_text = " ".join(context.args)
+    # Normalize: "3minutes" → "3 minutes", "2hrs" → "2 hrs"
     full_text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', full_text)
     full_text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', full_text)
 
-    words = full_text.split()
+    parse_settings = {
+        "PREFER_DATES_FROM": "future",
+        "RETURN_AS_TIMEZONE_AWARE": True,
+        "TIMEZONE": "Africa/Lagos",
+        "TO_TIMEZONE": "UTC",
+    }
 
-    # Try parsing progressively longer prefixes (longest first) to find the time part
-    parsed_time = None
-    message_start = 1  # at minimum, 1 word is the time
+    # search_dates finds the actual time expression within the text
+    results = search_dates(full_text, settings=parse_settings, languages=["en"])
 
-    for i in range(len(words), 0, -1):
-        candidate = " ".join(words[:i])
-        parsed = dateparser.parse(
-            candidate,
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "RETURN_AS_TIMEZONE_AWARE": True,
-                "TIMEZONE": "Africa/Lagos",
-                "TO_TIMEZONE": "UTC",
-            }
-        )
-        if parsed and parsed > datetime.now(timezone.utc):
-            parsed_time = parsed
-            message_start = i
-            break
-
-    if not parsed_time:
+    if not results:
         await update.message.reply_text(
-            "❌ Couldn't understand the time. Try:\n"
+            "❌ Couldn't find a time in that. Try:\n"
             "`/remind tomorrow at 5pm call John`\n"
             "`/remind in 30 minutes check logs`",
             parse_mode="Markdown"
         )
         return
 
-    reminder_msg = " ".join(words[message_start:]).strip()
-    if not reminder_msg:
-        await update.message.reply_text("❌ Please add a message after the time.\nExample: `/remind tomorrow 5pm call John`", parse_mode="Markdown")
+    # Take the first (earliest) found time expression
+    matched_text, parsed_time = results[0]
+
+    # Reject if it's in the past
+    if parsed_time <= datetime.now(timezone.utc):
+        await update.message.reply_text("❌ That time is in the past. Use a future time.", parse_mode="Markdown")
+        return
+
+    # Extract message by removing the matched time text
+    # Also strip common filler words: "me", "about", "sth", etc.
+    STRIP_WORDS = {"me", "about", "abotu", "sth", "something", "remind", "reminder", "us", "i"}
+    message = full_text.replace(matched_text, " ").strip()
+    message_words = [w for w in message.split() if w.lower() not in STRIP_WORDS]
+    message = " ".join(message_words).strip()
+
+    if not message:
+        await update.message.reply_text(
+            "❌ Please add a message after the time.\n"
+            "Example: `/remind tomorrow 5pm call John`",
+            parse_mode="Markdown"
+        )
         return
 
     delay_seconds = (parsed_time - datetime.now(timezone.utc)).total_seconds()
 
-    # Save and schedule
-    reminder_id = add_reminder(update.effective_chat.id, parsed_time, reminder_msg)
+    reminder_id = add_reminder(update.effective_chat.id, parsed_time, message)
     context.job_queue.run_once(
         fire_reminder,
         when=delay_seconds,
-        data={"chat_id": update.effective_chat.id, "message": reminder_msg, "id": reminder_id},
+        data={"chat_id": update.effective_chat.id, "message": message, "id": reminder_id},
         name=reminder_id
     )
 
-    # Show time in WAT (UTC+1)
     local_time = parsed_time + USER_TZ_OFFSET
     await update.message.reply_text(
         f"✅ *Reminder set!*\n"
         f"🆔 ID: `{reminder_id}`\n"
         f"📅 {local_time.strftime('%a, %b %d at %I:%M %p')} (WAT)\n"
-        f"💬 {reminder_msg}",
+        f"💬 {message}",
         parse_mode="Markdown"
     )
+
 
 # ─── LIST REMINDERS ───────────────────────────────────────────────────────────
 async def reminders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
