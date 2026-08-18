@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=rofeeq
+User=geniusiskills02
 WorkingDirectory=/opt/DevAgent
 EnvironmentFile=/opt/DevAgent/.env
 ExecStart=/opt/DevAgent/venv/bin/python3 /opt/DevAgent/bot.py
