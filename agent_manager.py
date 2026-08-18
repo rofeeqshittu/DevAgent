@@ -66,7 +66,7 @@ async def chat_with_agent(text):
     ensure_proxy_running()
 
     config = LocalOpenAIAgentConfig(
-        model="qwen-plus", # or qwen-max
+        model="qwen-max",  # best available Qwen model
         base_url=f"http://127.0.0.1:{_proxy_port}",
         api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
@@ -85,6 +85,7 @@ async def chat_with_agent(text):
             "- Project root: /opt/DevAgent/ (contains GEMINI.md — read it at the start of any major task).\n"
             "- Interface: Telegram bot. Max message length: 4,096 characters.\n"
             "- Tools available: run_command, list_dir, view_file, write_to_file, multi_replace_file_content, replace_file_content.\n"
+            "- Web search: you have internet access. To research anything online, run: `python3 /opt/DevAgent/search_web.py \"your query\"`. This returns the top 5 results with titles, URLs, and snippets. Use this for any task requiring current information, documentation lookups, or research.\n"
             "- A safety hook is active: before any run_command or file-write tool executes, Rofeeq will see an Approve/Deny button in Telegram. If he denies it, stop and report why the action was needed.\n"
             "</environment>\n\n"
 

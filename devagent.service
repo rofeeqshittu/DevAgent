@@ -1,0 +1,18 @@
+[Unit]
+Description=DevAgent Telegram Bot
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rofeeq
+WorkingDirectory=/opt/DevAgent
+EnvironmentFile=/opt/DevAgent/.env
+ExecStart=/opt/DevAgent/venv/bin/python3 /opt/DevAgent/bot.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/DevAgent/devagent.log
+StandardError=append:/opt/DevAgent/devagent.log
+
+[Install]
+WantedBy=multi-user.target
