@@ -124,6 +124,12 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     full_text = " ".join(context.args)
+
+    # Normalize: add space between digits and letters ("3minutes" → "3 minutes", "2hrs" → "2 hrs")
+    import re
+    full_text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', full_text)
+    full_text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', full_text)
+
     words = full_text.split()
 
     # Try parsing progressively longer prefixes (longest first) to find the time part
