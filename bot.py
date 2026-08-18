@@ -26,7 +26,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "I am an autonomous AI connected directly to your VPS terminal. You can converse with me naturally.\n\n"
         "/start - Wake me up\n"
         "/help - Show this message\n"
-        "/status - Check VPS server health (CPU, RAM, Disk)\n\n"
+        "/status - Check VPS server health (CPU, RAM, Disk)\n"
+        "/restart - Pull latest code from GitHub and restart the bot\n\n"
         "*Examples of what you can ask me:*\n"
         "- \"Clone my repo to /opt/my-app\"\n"
         "- \"Find the error in my python script\"\n"
@@ -34,6 +35,39 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "If I need to run a critical command or edit a file, I will send you a prompt with Approve/Deny buttons."
     )
     await update.message.reply_text(help_text, parse_mode="Markdown")
+
+async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🔄 Pulling latest code and restarting... I'll go quiet for a few seconds.")
+    try:
+        # Pull latest from GitHub
+        pull_result = subprocess.check_output(
+            ["git", "pull"],
+            cwd="/opt/DevAgent",
+            stderr=subprocess.STDOUT
+        ).decode("utf-8").strip()
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"✅ *Git pull done:*\n```\n{pull_result[:500]}\n```\nRestarting now...",
+            parse_mode="Markdown"
+        )
+    except subprocess.CalledProcessError as e:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"⚠️ Git pull failed:\n```\n{e.output.decode()[:400]}\n```\nRestarting anyway...",
+            parse_mode="Markdown"
+        )
+
+    # Restart: launch a new bot process then exit this one
+    subprocess.Popen(
+        ["bash", "-c", "sleep 2 && nohup python3 /opt/DevAgent/bot.py >> /opt/DevAgent/devagent.log 2>&1 &"],
+        cwd="/opt/DevAgent"
+    )
+    # Give Telegram time to receive the message before we die
+    await asyncio.sleep(1)
+    import os, signal
+    os.kill(os.getpid(), signal.SIGTERM)
+
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -102,6 +136,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("restart", restart_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message, block=False))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
