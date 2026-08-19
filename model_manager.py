@@ -14,15 +14,68 @@ import json
 import logging
 
 MODEL_CHAIN = [
-    "qwen3.8-max",          # newest Qwen, best reasoning
-    "qwen3.7-max",          # proven strong
-    "qwen3-max",            # solid max tier
-    "qwen3.7-plus",         # plus tier, fast
-    "qwen-plus-latest",     # always-updated plus
-    "qwen3.7-flash",        # fast flash fallback
-    "qwen3.5-plus",         # older but reliable
-    "qwen-plus",            # original, 88% remaining
-    "deepseek-v4-pro-0813", # last resort, great for coding
+    # ── TIER 1: MAX (best reasoning & coding) ────────────────────────────────
+    "qwen3.8-max",
+    "qwen3.7-max",
+    "qwen3.7-max-2026-06-08",
+    "qwen3.7-max-2026-05-20",
+    "qwen3.7-max-2026-05-17",
+    "qwen3.7-max-preview",
+    "qwen3-max",
+    "qwen3-max-preview",
+    "qwen3-max-2026-01-23",
+    "qwen3-max-2025-09-23",
+    "qwen3.6-max-preview",
+
+    # ── TIER 2: PLUS (fast + capable) ────────────────────────────────────────
+    "qwen3.7-plus",
+    "qwen3.7-plus-2026-05-26",
+    "qwen3.6-plus",
+    "qwen3.6-plus-2026-04-02",
+    "qwen3.5-plus",
+    "qwen3.5-plus-2026-04-20",
+    "qwen3.5-plus-2026-02-15",
+    "qwen-plus-latest",
+    "qwen-plus-2025-12-01",
+    "qwen-plus-2025-09-11",
+    "qwen-plus-2025-07-28",
+    "qwen-plus-2025-07-14",
+    "qwen-plus-2025-04-28",
+    "qwen-plus",              # 88% remaining, expiring Sep 1
+
+    # ── TIER 3: OPEN-WEIGHT LARGE (massive context, great quality) ───────────
+    "qwen3.5-397b-a17b",      # 397B MoE — largest available
+    "qwen3.5-122b-a10b",      # 122B MoE
+    "qwen3.6-35b-a3b",
+    "qwen3.5-35b-a3b",
+    "qwen3.6-27b",
+    "qwen3.5-27b",
+
+    # ── TIER 4: DEEPSEEK (excellent for coding tasks) ─────────────────────────
+    "deepseek-v4-pro-0813",   # latest DeepSeek, 86 days remaining
+    "deepseek-v4-pro",
+    "deepseek-v3.2",
+    "deepseek-v4-flash",
+
+    # ── TIER 5: GLM ──────────────────────────────────────────────────────────
+    "glm-5.2",
+    "glm-5.1",
+
+    # ── TIER 6: FLASH (fastest, lower capability) ─────────────────────────────
+    "qwen3.7-flash",
+    "qwen3.7-flash-2026-07-15",
+    "qwen3.6-flash",
+    "qwen3.6-flash-2026-04-16",
+    "qwen3.5-flash",
+    "qwen3.5-flash-2026-02-23",
+
+    # ── TIER 7: VISION-LANGUAGE (text-capable, last resort) ──────────────────
+    "qwen3-vl-plus",
+    "qwen3-vl-plus-2025-12-19",
+    "qwen3-vl-plus-2025-09-23",
+    "qwen3-vl-flash",
+    "qwen3-vl-flash-2026-01-22",
+    "qwen3-vl-flash-2025-10-15",
 ]
 
 # Strings in API error responses that indicate quota exhaustion
