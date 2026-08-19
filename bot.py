@@ -128,7 +128,7 @@ async def parse_reminder_with_ai(user_input: str, now_wat: str) -> tuple | None:
         )
 
         payload = {
-            "model": "qwen-max",
+            "model": os.getenv("QWEN_MODEL", "qwen-plus"),
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
             "max_tokens": 120

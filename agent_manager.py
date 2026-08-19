@@ -70,7 +70,7 @@ async def chat_with_agent(text):
     ensure_proxy_running()
 
     config = LocalOpenAIAgentConfig(
-        model="qwen-max",  # best available Qwen model
+        model=os.getenv("QWEN_MODEL", "qwen-plus"),  # override via QWEN_MODEL in .env
         base_url=f"http://127.0.0.1:{_proxy_port}",
         api_key=os.getenv("QWEN_API_KEY"),
         conversation_id=cid,
