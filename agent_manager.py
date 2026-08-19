@@ -5,6 +5,7 @@ from google.antigravity import Agent, LocalAgentConfig, LocalOpenAIAgentConfig
 from safety_hooks import pre_tool_call_decide_hook
 from qwen_proxy import start_proxy
 from chat_history import build_context_message, add_turn
+from model_manager import get_current_model, mark_exhausted, is_quota_error
 
 _bot = None
 _chat_id = None
@@ -167,20 +168,48 @@ async def chat_with_agent(text):
         )
     )
     
-    max_retries = 3
+    max_retries = 5
     for attempt in range(max_retries):
+        current_model = get_current_model()
+        config.model = current_model
         try:
             async with Agent(config) as agent:
                 response = await agent.chat(message_with_context)
                 if not cid and agent.conversation_id:
                     save_conversation_id(str(agent.conversation_id))
                 reply = await response.text()
-                # Save this exchange to persistent history
                 add_turn(text, reply)
                 return reply
         except Exception as e:
             error_msg = str(e)
+
+            # Quota exhausted — auto-switch model
+            if is_quota_error(error_msg):
+                new_model = mark_exhausted(current_model)
+                bot, chat_id = get_telegram_context()
+                if bot and chat_id:
+                    if new_model:
+                        await bot.send_message(
+                            chat_id=chat_id,
+                            text=(
+                                f"⚠️ *Model `{current_model}` quota exhausted.*\n"
+                                f"Automatically switched to: `{new_model}`\n"
+                                f"Retrying your request..."
+                            ),
+                            parse_mode="Markdown"
+                        )
+                    else:
+                        await bot.send_message(
+                            chat_id=chat_id,
+                            text="🚫 *All models are quota-exhausted.* Please top up your QwenCloud account or wait for quota reset.",
+                            parse_mode="Markdown"
+                        )
+                        raise RuntimeError("All Qwen models exhausted.")
+                continue  # retry with new model
+
+            # Transient connection errors — backoff retry
             if ("503" in error_msg or "1000 (OK)" in error_msg or "ConnectionClosed" in error_msg) and attempt < max_retries - 1:
                 await asyncio.sleep(2 * (attempt + 1))
                 continue
+
             raise e

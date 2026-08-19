@@ -12,6 +12,7 @@ import agent_manager
 from safety_hooks import pending_approvals
 from chat_history import clear_history
 from reminders import add_reminder, remove_reminder, get_pending_reminders
+from model_manager import get_current_model, MODEL_CHAIN, reset as reset_models
 
 load_dotenv()
 
@@ -316,10 +317,12 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ram_percent = (ram_used / ram_total) * 100
 
         pending = get_pending_reminders()
-        reminder_count = len([r for r in pending if True])  # all of them for this user
+        reminder_count = len(pending)
+        current_model = get_current_model()
 
         status_text = (
             "📊 *VPS Server Status*\n\n"
+            f"🤖 *Model:* `{current_model}`\n"
             f"💽 *Disk:* {used // (2**30)}GB / {total // (2**30)}GB ({disk_percent:.1f}%)\n"
             f"🧠 *RAM:* {ram_used}MB / {ram_total}MB ({ram_percent:.1f}%)\n"
             f"⏰ *Pending Reminders:* {reminder_count}\n"
@@ -328,6 +331,27 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(status_text, parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"❌ Error fetching status: {e}")
+
+async def model_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show current model and full fallback chain."""
+    current = get_current_model()
+    chain_lines = []
+    for m in MODEL_CHAIN:
+        if m == current:
+            chain_lines.append(f"▶️ `{m}` ← *current*")
+        else:
+            chain_lines.append(f"  `{m}`")
+    text = "🔗 *Model Fallback Chain:*\n\n" + "\n".join(chain_lines)
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+async def resetmodel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reset exhausted model list — use when quota is refilled."""
+    reset_models()
+    current = get_current_model()
+    await update.message.reply_text(
+        f"✅ Model chain reset. Now using: `{current}`",
+        parse_mode="Markdown"
+    )
 
 # ─── MESSAGES ─────────────────────────────────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -392,6 +416,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("model", model_command))
+    app.add_handler(CommandHandler("resetmodel", resetmodel_command))
     app.add_handler(CommandHandler("restart", restart_command))
     app.add_handler(CommandHandler("clear", clear_command))
     app.add_handler(CommandHandler("remind", remind_command))
